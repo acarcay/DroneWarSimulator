@@ -42,8 +42,8 @@ class Config:
     # swarm
     N: int = 8
     DT: float = 0.06
-    MAX_SPEED: float = 4.0
-    ACC_MAX: float = 12.0
+    MAX_SPEED: float = 5.0
+    ACC_MAX: float = 13.0
     DAMPING: float = 0.06
     R_NEIGH: float = 4.0
     MARGIN: float = 2.0
