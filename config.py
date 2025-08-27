@@ -59,8 +59,8 @@ class Config:
     TURN_RATE_MAX: float = 0.25
 
     # adaptive speed
-    V_MAX_FAR: float = 4.0
-    V_MIN_NEAR: float = 0.6
+    V_MAX_FAR: float = 4.0     # speed cap in open areas
+    V_MIN_NEAR: float = 0.6    # minimum speed cap near obstacles
     SLOW_RADIUS: float = 8.0
     K_VEL_TRACK: float = 1.9
 
