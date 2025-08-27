@@ -268,7 +268,8 @@ class SwarmController:
                 cl = 1000.0 if self.planner._los(pos[i], pos[i] + leader_dir * 1000.0) else 3.0
             clear_list.append(cl)
         cl_soft = float(np.percentile(np.array(clear_list), perc))
-        v_cap_group = min(cfg.V_MAX_FAR, cl_soft / max(ttc_slow, 1e-6))
+        v_cap_group = max(cfg.V_MIN_NEAR,
+                          min(cfg.V_MAX_FAR, cl_soft / max(ttc_slow, 1e-6)))
 
         anchor = self.leader_anchor(pos, vel)
         max_lag = 0.0
