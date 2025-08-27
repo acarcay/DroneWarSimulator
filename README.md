@@ -1,80 +1,93 @@
-# README for Drone Swarm Simulation
+DroneWarSim
 
-## Overview
-The Drone Swarm Simulation project is designed to simulate the behavior of a swarm of drones using various algorithms and techniques. The simulation allows for the visualization of drone movements, interactions, and the effects of environmental factors such as obstacles.
+DroneWarSim is a drone swarm simulation framework designed to model and test swarm behaviors in defense-oriented and research scenarios.
 
-Formation Error Reduction
+The system simulates swarm dynamics, communication losses, sensor errors, and advanced path planning algorithms, making the simulation more realistic for military-style missions, robotics research, and AI development.
 
-Throughout iterative development, we progressively reduced the swarm’s formation error (measured as root-mean-square error, RMSE) by introducing several algorithmic refinements. Initially, the baseline controller combined only separation, alignment, cohesion, and goal forces, which resulted in RMSE values exceeding 4 m. Subsequent modifications addressed both path efficiency and formation stability: (i) collision handling and potential-field tuning to avoid wall/obstacle penetration, (ii) adaptive formation radius scaling to maintain safe inter-drone spacing, (iii) Hungarian assignment with hysteresis to stabilize slot allocation, (iv) forward-clearance and time-to-collision speed capping to synchronize group velocity, and (v) global path planning via a visibility-graph with Dijkstra search and shortcut smoothing. Finally, low-pass filtering of slot targets, adaptive PD control laws with natural frequency and damping parameters, and a cohesion governor for leader speed regulation significantly tightened slot tracking. Empirically, these steps reduced mean RMSE from >4 m to approximately 1.2 m, with minimum RMSE below 0.5 m, while also lowering settling time and improving overall trajectory efficiency.
+✨ Features
 
-Methods
+Modular Architecture → organized into src/, comms/, planner/, sensors/, ui/, tests/
 
-Our approach to swarm formation control and obstacle avoidance was developed incrementally, combining concepts from multi-agent systems, motion planning, and control theory. The main methodological components are as follows:
+Communication Model → LossyChannel simulates delay, jitter, and packet loss between drones
 
-1)Baseline Swarm Dynamics
-We implemented a Boids-inspired controller with separation, alignment, cohesion, and goal-seeking terms. This provided a functional but error-prone formation baseline.
+Sensor Modeling → GPS noise, dropout, and bias (with placeholders for IMU and LiDAR)
 
-2)Collision Handling and Environment Forces
-To prevent unrealistic penetration of walls and obstacles, we incorporated repulsive forces with configurable influence radii, along with a no-penetration projection step after state integration.
+Reporting System → automatic JSON, PNG, and HTML reports after each simulation run
 
-3)Formation Geometry and Assignment
-The nominal formation was defined as a circular lattice whose radius adapted to the number of agents and the minimum inter-drone distance. Slot allocation was optimized using the Hungarian algorithm with a switch penalty, reducing assignment thrashing.
+Advanced Planning → scaffolding for A*, D* Lite (dynamic replanning), and RRT*
 
-4)Velocity Regulation
-Leader and follower velocities were capped using forward-clearance and time-to-collision (TTC) estimates, ensuring anticipatory slowing near obstacles. A group speed cap based on clearance percentiles maintained cohesion across the formation.
+Dynamic Obstacles → foundation for moving threats and risk-based path planning
 
-5)Path Planning and Trajectory Smoothing
-A visibility-graph planner with Dijkstra search generated obstacle-avoiding waypoints. Post-processing with shortcut smoothing and Pure-Pursuit lookahead improved trajectory efficiency and reduced unnecessary detours.
+Formation Control → Boids-inspired separation, alignment, cohesion, and goal-seeking
 
-6)Formation Tracking Enhancements
-Followers employed a filtered slot target (low-pass filter) to mitigate jitter. Slot tracking was stabilized using adaptive proportional-derivative (PD) control formulated in natural frequency/damping form. A cohesion governor further constrained leader acceleration when follower lag was detected.
+Linux/Ubuntu Support → tested on Ubuntu with Python 3.10+
 
-7)Parameter Tuning
-Parameters such as separation/align/goal weights, lookahead distance, velocity tracking gain, and percentile-based group speed thresholds were iteratively tuned to balance agility and stability.
+droneSwarmSim/
+  main.py                # Simulation entry point
+  comms/                 # Communication modules (e.g., LossyChannel)
+  planner/               # Path planning (A*, D* Lite, RRT*)
+  sensors/               # Sensor models (GPS, IMU, LiDAR)
+  reports/               # Auto-generated reports
+  raporlama.py           # Reporting script
+  tests/                 # Unit and integration tests
+⚙️ Requirements
 
+Install the required packages:
 
-## Project Structure
-The project consists of the following files:
-
-- **config.py**: Contains the `Config` class for simulation configuration parameters.
-- **control.py**: Defines the `SwarmController` class to manage drone swarm behavior.
-- **environment.py**: Contains the `Environment` class for calculating repulsion forces from walls and obstacles.
-- **main.py**: The entry point for the simulation, initializing all components and starting the animation loop.
-- **metrics.py**: Defines the `Metrics` class for tracking swarm performance metrics.
-- **models.py**: Contains the `Drone` class representing individual drones in the simulation.
-- **utils.py**: Provides utility functions for vector operations and calculations.
-- **viz.py**: Defines the `Visualizer` class for handling the graphical representation of the simulation.
-- **README.md**: Documentation for the project.
-
-## Requirements
-To run the simulation, ensure you have the following Python packages installed:
-
-- numpy
-- matplotlib
-- scipy (optional, for optimal assignment)
-
-You can install the required packages using pip:
-
-```
 pip install numpy matplotlib scipy
-```
 
-## Running the Simulation
-1. Clone the repository or download the project files.
-2. Navigate to the project directory.
-3. Run the `main.py` file:
 
-```
-python main.py
-```
+Optional (for reporting and advanced features):
 
-4. Use the following controls during the simulation:
-   - Press the spacebar to pause/resume the simulation.
-   - Press 'g' to toggle between waypoint and obstacle modes.
-   - Use 'tab' and 'backspace' to cycle through obstacles.
+pip install pandas
 
-## Customization
-You can modify the simulation parameters in the `config.py` file to adjust the behavior of the drones, the environment, and the visualization settings.
 
-## License
-This project is licensed under the MIT License. See the LICENSE file for more details.
+If running on Ubuntu, ensure Python 3.10+ is installed:
+
+sudo apt update
+sudo apt install python3 python3-pip
+
+🚀 Running the Simulation
+
+Clone the repository:
+
+git clone https://github.com/<your-username>/DroneWarSim.git
+cd DroneWarSim
+
+
+Run the simulation:
+
+python3 main.py
+
+
+Results will appear in the terminal and automatically saved under reports/:
+
+timestamp_summary.json → raw results
+
+timestamp_paths.png → path length comparison
+
+timestamp_metrics.png → RMSE & settling time
+
+timestamp_report.html → full HTML report
+
+📊 Example Output
+=== Simulation Summary ===
+Total path (sum): 2192.99 m
+  Drone 0: 269.97 m
+  Drone 1: 269.48 m
+  ...
+Mean RMSE: 1.084 m
+Min  RMSE: 0.325 m
+Settling time: 26.52 s
+
+🎯 Future Work
+
+Enemy Drones → patrol, interceptor, or jammer agents
+
+Mission System → recon, escort, attack, and delivery tasks
+
+ROS2 Integration → real-time telemetry publishing/subscription
+
+UI Dashboard → live swarm visualization via FastAPI + React
+
+Reinforcement Learning → AI-based dynamic obstacle avoidance
