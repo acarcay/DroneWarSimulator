@@ -7,12 +7,22 @@
 # This single file contains all of them inline. Copy each section into its file.
 # ──────────────────────────────────────────────────────────────────────────────
 
+import json
 import math
 import itertools
 import logging
 from dataclasses import dataclass, field
 from typing import List, Tuple, Optional
 import heapq
+from pymavlink import mavutil
+import heapq, random, time
+from comms.channel import LossyChannel
+from fastapi import FastAPI, WebSocket
+from reports import save_report
+
+import rclpy
+from rclpy.node import Node
+from nav_msgs.msg import Odometry
 
 
 import numpy as np
@@ -936,10 +946,110 @@ class Visualizer:
             self.swarm.step()
             self.metrics.update()
         return self.draw()
+    
+# ──────────────────────────────────────────────────────────────────────────────
+# mavlink_bridge.py
+# ─────────────────────────────────────────────────────────────────────────────
+class MAVLinkBridge:
+    def __init__(self, url="udpout:127.0.0.1:14550", sysid=1, compid=1):
+        self.m = mavutil.mavlink_connection(url, source_system=sysid, source_component=compid)
+
+    def start(self):
+        while True:
+            self.m.mav.heartbeat_send(
+                mavutil.mavlink.MAV_TYPE_QUADROTOR,
+                mavutil.mavlink.MAV_AUTOPILOT_PX4,
+                0, 0, mavutil.mavlink.MAV_STATE_ACTIVE
+            )
+            time.sleep(1)
 
 # ──────────────────────────────────────────────────────────────────────────────
-# main.py
+# odompub.py
+# ─────────────────────────────────────────────────────────────────────────────
+class OdomPub(Node):
+    def __init__(self):
+        super().__init__('odom_pub')
+        self.pub = self.create_publisher(Odometry, 'uav0/odom', 10)
+
+    def tick(self, state):
+        msg = Odometry()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z = state.pos
+        self.pub.publish(msg)
+
 # ──────────────────────────────────────────────────────────────────────────────
+# gps.py
+# ──────────────────────────────────────────────────────────────────────────────
+class GPS:
+    def __init__(self, sigma=1.5, bias_walk=0.01, dropout_p=0.02, seed=0):
+        self.rng = np.random.default_rng(seed)
+        self.bias = np.zeros(3)
+        self.sigma = sigma; self.bias_walk = bias_walk; self.dropout_p = dropout_p
+
+    def read(self, true_pos):
+        if self.rng.random() < self.dropout_p:
+            return None  # kayıp
+        self.bias += self.rng.normal(0, self.bias_walk, 3)
+        noise = self.rng.normal(0, self.sigma, 3)
+        return true_pos + self.bias + noise
+
+# ──────────────────────────────────────────────────────────────────────────────
+# a_star.py
+# ─────────────────────────────────────────────────────────────────────────────
+def astar(neigh_fn, h_fn, start, goal):
+    openq=[(0,start)]; g={start:0}; parent={start:None}
+    while openq:
+        _, u = heapq.heappop(openq)
+        if u==goal: break
+        for v, w in neigh_fn(u):
+            alt = g[u] + w
+            if v not in g or alt < g[v]:
+                g[v]=alt; parent[v]=u
+                f = alt + h_fn(v, goal)
+                heapq.heappush(openq, (f, v))
+    # rekonstrüksiyon
+    path=[]; x=goal
+    while x is not None: path.append(x); x=parent.get(x)
+    return list(reversed(path)), g.get(goal, math.inf)
+
+# ──────────────────────────────────────────────────────────────────────────────
+# test_channel.py
+# ─────────────────────────────────────────────────────────────────────────────
+def test_loss_rate():
+    ch=LossyChannel(loss_p=0.1, jitter=0.0, base_delay=0.0)
+    n=2000; sent=0; recv=0
+    for i in range(n):
+        ch.send(i); sent+=1
+    import time; time.sleep(0.1)
+    recv=len(ch.recv_ready())
+    loss=(sent-recv)/sent
+    assert 0.05 < loss < 0.15
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# fastapi.py
+# ─────────────────────────────────────────────────────────────────────────────
+
+app = FastAPI()
+clients = set()
+
+@app.websocket("/ws")
+async def ws(ws: WebSocket):
+    await ws.accept(); clients.add(ws)
+    try:
+        while True:
+            await ws.receive_text()  # ping/pong
+    finally:
+        clients.remove(ws)
+
+async def push_state(state_dict):
+    msg = json.dumps(state_dict, default=float)
+    for c in list(clients):
+        await c.send_text(msg)    
+
+# ─────────────────────────────────────────────────────────────────────────────
+# main.py
+# ─────────────────────────────────────────────────────────────────────────────
 
 def main():
     logging.basicConfig(level=logging.INFO)
@@ -977,6 +1087,23 @@ def main():
             print(f"Settling time: {metrics.settled_time_s:.2f} s")
         else:
             print("Not settled under thresholds (tune FORM_ERR_THRESH / STABLE_FRAMES).")
+
+
+    old_results = {
+        "drone": list(range(8)),
+        "path": [226.69,226.12,226.27,229.45,234.07,234.27,236.37,234.35],
+        "mean_rmse": 1.284,
+        "settling_time": 38.16
+    }
+    new_results = {
+        "drone": list(range(8)),
+        "path": [189.26,188.16,190.53,193.08,195.90,194.01,195.03,193.83],
+        "mean_rmse": 1.127,
+        "settling_time": 26.52
+    }
+
+    report = save_report(old_results, new_results)
+    print("Rapor kaydedildi:", report)        
 
 if __name__ == "__main__":
     try:
