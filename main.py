@@ -12,6 +12,7 @@ from metrics import Metrics
 from viz import Visualizer, plt
 from matplotlib.animation import FuncAnimation
 from reports import save_report
+from sensors import GPSSensor, IMUSensor, LiDARSensor
 
 
 def main():
@@ -19,6 +20,11 @@ def main():
     np.random.seed(2)
 
     cfg = Config()
+    sensors = {
+        "gps": GPSSensor(cfg.GPS_BIAS, cfg.GPS_NOISE, cfg.GPS_DROPOUT),
+        "imu": IMUSensor(cfg.IMU_BIAS, cfg.IMU_NOISE, cfg.IMU_DROPOUT),
+        "lidar": LiDARSensor(cfg.LIDAR_BIAS, cfg.LIDAR_NOISE, cfg.LIDAR_DROPOUT),
+    }
 
     # init drones
     drones: List[Drone] = []
@@ -28,7 +34,7 @@ def main():
         drones.append(Drone(i, pos, vel))
 
     env = Environment(cfg)
-    swarm = SwarmController(cfg, env, drones, leader_idx=0)
+    swarm = SwarmController(cfg, env, drones, leader_idx=0, sensors=sensors)
     metrics = Metrics(cfg, swarm)
     viz = Visualizer(cfg, swarm, metrics)
     viz.setup()

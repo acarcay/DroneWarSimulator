@@ -89,3 +89,14 @@ class Config:
     # additional config
     R_SEP: float = 1.6        # sadece bu menzilde separation uygula
     OBS_FORCE_MAX: float = 12.0  # 6.0 -> 12.0: engelde “yetişsin”
+
+    # sensors
+    GPS_BIAS: np.ndarray = field(default_factory=lambda: np.zeros(2))  # GPS bias (m)
+    GPS_NOISE: float = 0.0                                           # GPS noise std dev (m)
+    GPS_DROPOUT: float = 0.0                                         # GPS dropout probability
+    IMU_BIAS: np.ndarray = field(default_factory=lambda: np.zeros(2))  # IMU bias (m/s)
+    IMU_NOISE: float = 0.0                                            # IMU noise std dev (m/s)
+    IMU_DROPOUT: float = 0.0                                          # IMU dropout probability
+    LIDAR_BIAS: np.ndarray = field(default_factory=lambda: np.zeros(2))  # LiDAR bias for obstacle vectors
+    LIDAR_NOISE: float = 0.0                                           # LiDAR noise std dev
+    LIDAR_DROPOUT: float = 0.0                                         # LiDAR dropout probability
