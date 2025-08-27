@@ -254,11 +254,16 @@ class SwarmController:
                 self.recompute_assignments(pos)
         self.frame_count += 1
 
-        # Grup hız tavanı: en kötü drone yerine YÜZDELİK
-        leader_dir = self._unit(leader_goal - pos[self.leader]) if np.linalg.norm(leader_goal - pos[self.leader]) > 1e-6 else self._unit(vel[self.leader])
+        # Grup hız tavanı: lider engel boşluğu veya karışık mod
+        leader_dir = (
+            self._unit(leader_goal - pos[self.leader])
+            if np.linalg.norm(leader_goal - pos[self.leader]) > 1e-6
+            else self._unit(vel[self.leader])
+        )
         pad = getattr(self.cfg, "SAFE_PAD", 0.6)
         ttc_slow = getattr(self.cfg, "TTC_SLOW", 2.5)
-        perc = float(getattr(self.cfg, "GROUP_CLEAR_PERCENTILE", 30.0))  # 0..100
+        mode = getattr(self.cfg, "GROUP_CLEAR_MODE", "blend")
+        perc = float(getattr(self.cfg, "GROUP_CLEAR_PERCENTILE", 70.0))  # 0..100
         clear_list = []
         for i in range(cfg.N):
             if hasattr(self.env, "forward_clearance"):
@@ -267,7 +272,12 @@ class SwarmController:
                 # kaba yaklaşık: LOS varsa büyük, yoksa küçük bir değer
                 cl = 1000.0 if self.planner._los(pos[i], pos[i] + leader_dir * 1000.0) else 3.0
             clear_list.append(cl)
-        cl_soft = float(np.percentile(np.array(clear_list), perc))
+        if mode == "leader":
+            cl_soft = clear_list[self.leader]
+        elif mode == "blend":
+            cl_soft = max(clear_list[self.leader], float(np.percentile(np.array(clear_list), perc)))
+        else:
+            cl_soft = float(np.percentile(np.array(clear_list), perc))
         v_cap_group = min(cfg.V_MAX_FAR, cl_soft / max(ttc_slow, 1e-6))
 
         anchor = self.leader_anchor(pos, vel)
