@@ -64,6 +64,10 @@ class Config:
     SLOW_RADIUS: float = 8.0
     K_VEL_TRACK: float = 1.9
 
+    # grup hız tavanı için boşluk hesaplama modu
+    GROUP_CLEAR_MODE: str = "blend"      # 'leader' veya 'blend'
+    GROUP_CLEAR_PERCENTILE: float = 70.0  # blend için yüzde (0..100)
+
     # waypoints
     WAYPOINTS: np.ndarray = field(default_factory=lambda: np.array([[6,4],[18,6],[34,20],[8,20],[36,8]], dtype=float))
 
