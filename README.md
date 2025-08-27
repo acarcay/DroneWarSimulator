@@ -10,7 +10,8 @@ Modular Architecture → organized into src/, comms/, planner/, sensors/, ui/, t
 
 Communication Model → LossyChannel simulates delay, jitter, and packet loss between drones
 
-Sensor Modeling → GPS noise, dropout, and bias (with placeholders for IMU and LiDAR)
+Sensor Modeling → GPS, IMU and LiDAR with bias, noise and dropout
+Configurable parameters for sensor bias, noise and dropout in ``Config``
 
 Reporting System → automatic JSON, PNG, and HTML reports after each simulation run
 

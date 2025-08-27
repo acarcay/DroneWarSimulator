@@ -17,11 +17,15 @@ except Exception:  # pragma: no cover - SciPy optional
 
 
 class SwarmController:
-    def __init__(self, cfg: Config, env: Environment, drones: List[Drone], leader_idx: int = 0):
+    def __init__(self, cfg: Config, env: Environment, drones: List[Drone], leader_idx: int = 0, sensors=None):
         self.cfg = cfg
         self.env = env
         self.drones = drones
         self.leader = leader_idx
+        sensors = sensors or {}
+        self.gps = sensors.get("gps")
+        self.imu = sensors.get("imu")
+        self.lidar = sensors.get("lidar")
 
         # Emniyetli formasyon yarıçapı
         r_min = (getattr(self.cfg, "D_MIN", 1.2) * 1.1) / (2 * math.sin(math.pi / self.cfg.N))
@@ -206,8 +210,25 @@ class SwarmController:
     # ---- main step ----
     def step(self) -> None:
         cfg = self.cfg
-        pos = self.positions()
-        vel = self.velocities()
+        pos_true = self.positions()
+        vel_true = self.velocities()
+
+        pos = pos_true.copy()
+        if self.gps is not None:
+            measured = []
+            for p in pos_true:
+                m = self.gps.measure(p)
+                measured.append(p if m is None else m)
+            pos = np.array(measured)
+
+        vel = vel_true.copy()
+        if self.imu is not None:
+            measured_v = []
+            for v in vel_true:
+                m = self.imu.measure(v)
+                measured_v.append(v if m is None else m)
+            vel = np.array(measured_v)
+
         self._update_offsets(pos)
 
         # Waypoint ilerlet (yalnızca ana hedefe varınca)
@@ -283,7 +304,12 @@ class SwarmController:
                 sep *= 2.0
 
             # Potansiyel alanlar: duvar + engel
-            obs = self.env.wall_repulsion(pos[i]) + self.env.obstacle_repulsion(pos[i])
+            obs_true = self.env.wall_repulsion(pos_true[i]) + self.env.obstacle_repulsion(pos_true[i])
+            if self.lidar is not None:
+                m = self.lidar.measure(obs_true)
+                obs = obs_true if m is None else m
+            else:
+                obs = obs_true
 
             # Liderin engel itişini "acil durum" dışında zayıflat (planlı yol öncelikli)
             if i == self.leader:
@@ -348,16 +374,16 @@ class SwarmController:
             accel[i] = a
 
         # Entegrasyon ve çarpışma çözümü
-        vel = (1 - cfg.DAMPING)*vel + accel*cfg.DT
-        vel = U.limit_speed(vel, cfg.MAX_SPEED)
-        pos = pos + vel*cfg.DT
+        vel_true = (1 - cfg.DAMPING) * vel_true + accel * cfg.DT
+        vel_true = U.limit_speed(vel_true, cfg.MAX_SPEED)
+        pos_true = pos_true + vel_true * cfg.DT
 
         for i in range(cfg.N):
-            pos[i], vel[i] = self.env.resolve_collisions(pos[i], vel[i])
+            pos_true[i], vel_true[i] = self.env.resolve_collisions(pos_true[i], vel_true[i])
 
         for i, d in enumerate(self.drones):
-            d.vel = vel[i]
+            d.vel = vel_true[i]
             prev = d.pos.copy()
-            d.pos = pos[i]
+            d.pos = pos_true[i]
             d.add_path(prev)
 
