@@ -323,6 +323,8 @@ class SwarmController:
                 if near > (pad + 0.6 * getattr(self.cfg, "OBS_INFLUENCE", 5.0)):
                     obs *= 0.25
 
+            tang = self.env.obstacle_tangential(pos_true[i], leader_dir)
+
             if i == self.leader:
                 vec = leader_goal - pos[i]
                 dist = np.linalg.norm(vec)
@@ -368,8 +370,9 @@ class SwarmController:
                 acc_goal = np.zeros(2)  # takipçi için yok
                 acc_form = Kp * pos_err + Kd * vel_err
 
-            u = (cfg.W_SEP*sep + cfg.W_ALI*ali + cfg.W_COH*coh + cfg.W_OBS*obs) \
-                + (cfg.W_GOAL*acc_goal) + (cfg.W_FORM*acc_form)
+            u = (cfg.W_SEP*sep + cfg.W_ALI*ali + cfg.W_COH*coh +
+                 cfg.W_OBS*obs + cfg.W_TANG*tang +
+                 cfg.W_GOAL*acc_goal + cfg.W_FORM*acc_form)
 
             a = U.unit(u) * min(np.linalg.norm(u), cfg.ACC_MAX)
             accel[i] = a
